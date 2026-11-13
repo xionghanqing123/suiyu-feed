@@ -11,6 +11,14 @@
 - 快捷键：`Ctrl / Cmd + Enter` 快速发布
 - 空状态提示、响应式布局（移动端可用）
 
+## 仓库地址
+
+https://github.com/xionghanqing123/suiyu-feed
+
+```bash
+git clone https://github.com/xionghanqing123/suiyu-feed.git
+```
+
 ## 目录结构
 
 ```
