@@ -72,3 +72,24 @@ export function validatePostInput(raw) {
 
   return { ok: true, value: { text, author } };
 }
+
+/**
+ * 校验「布尔开关」类入参，例如点赞的 `{liked:true}`、收藏的 `{favorited:false}`。
+ * 显式传目标状态而不是 toggle，接口才能保持幂等。
+ *
+ * @param {unknown} raw 已解析的请求体
+ * @param {string} field 需要读取的布尔字段名
+ * @returns {{ok: true, value: boolean}
+ *          | {ok: false, error: {code: string, message: string}}}
+ */
+export function validateFlagInput(raw, field) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return fail('INVALID_STATE', `请求体必须是包含 ${field} 的 JSON 对象。`);
+  }
+
+  if (typeof raw[field] !== 'boolean') {
+    return fail('INVALID_STATE', `${field} 必须是布尔值。`);
+  }
+
+  return { ok: true, value: raw[field] };
+}

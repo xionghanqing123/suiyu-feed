@@ -33,6 +33,16 @@ async function createPost(app, payload) {
   return body.post;
 }
 
+/**
+ * 调用点赞 / 收藏接口。
+ *
+ * @param {string} kind 'like' 或 'favorite'
+ * @param {object|string} payload 请求体
+ */
+function setFlag(app, id, kind, payload) {
+  return requestJson(app, `/api/posts/${id}/${kind}`, jsonBody('PUT', payload));
+}
+
 describe('GET /api/health', () => {
   it('返回 200 与 {status:"ok"}', async () => {
     const { app } = setup();
@@ -256,6 +266,200 @@ describe('DELETE /api/posts/:id', () => {
   });
 });
 
+describe('新建动态的点赞 / 收藏初始状态', () => {
+  it('四个新字段初始为 0 / false', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '初始状态' });
+
+    expect(post.likeCount).toBe(0);
+    expect(post.liked).toBe(false);
+    expect(post.favoriteCount).toBe(0);
+    expect(post.favorited).toBe(false);
+  });
+});
+
+describe('PUT /api/posts/:id/like', () => {
+  it('点赞成功返回 200，likeCount 为 1 且 liked 为 true', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '值得点赞' });
+
+    const { res, body } = await setFlag(app, post.id, 'like', { liked: true });
+
+    expect(res.status).toBe(200);
+    expect(body.post).toEqual({ ...post, likeCount: 1, liked: true });
+  });
+
+  it('重复点赞同一状态不会重复累加（幂等）', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '连点三次' });
+
+    await setFlag(app, post.id, 'like', { liked: true });
+    const second = await setFlag(app, post.id, 'like', { liked: true });
+    const third = await setFlag(app, post.id, 'like', { liked: true });
+
+    expect(second.body.post.likeCount).toBe(1);
+    expect(third.body.post.likeCount).toBe(1);
+    expect(third.body.post.liked).toBe(true);
+  });
+
+  it('取消点赞后计数回到 0，重复取消不会变成负数', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '点完再取消' });
+
+    await setFlag(app, post.id, 'like', { liked: true });
+    const off = await setFlag(app, post.id, 'like', { liked: false });
+    const again = await setFlag(app, post.id, 'like', { liked: false });
+
+    expect(off.body.post.likeCount).toBe(0);
+    expect(off.body.post.liked).toBe(false);
+    expect(again.body.post.likeCount).toBe(0);
+    expect(again.body.post.liked).toBe(false);
+  });
+
+  it('点赞结果会被列表接口读到', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '列表同步' });
+
+    await setFlag(app, post.id, 'like', { liked: true });
+
+    const { body } = await requestJson(app, '/api/posts');
+    expect(body.posts[0].likeCount).toBe(1);
+    expect(body.posts[0].liked).toBe(true);
+  });
+
+  it('点赞不存在的 id → 404 NOT_FOUND', async () => {
+    const { app } = setup();
+    const { res, body } = await setFlag(app, 'does-not-exist', 'like', { liked: true });
+
+    expect(res.status).toBe(404);
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('liked 非布尔值 → 400 INVALID_STATE', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '类型校验' });
+
+    for (const value of ['yes', 1, null, [], {}]) {
+      const { res, body } = await setFlag(app, post.id, 'like', { liked: value });
+      expect(res.status).toBe(400);
+      expect(body.error.code).toBe('INVALID_STATE');
+      expect(body.error.message).toContain('liked');
+    }
+  });
+
+  it('liked 缺省 → 400 INVALID_STATE', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '缺字段' });
+
+    const { res, body } = await setFlag(app, post.id, 'like', {});
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('INVALID_STATE');
+  });
+
+  it('非法 JSON → 400 INVALID_JSON', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '坏 JSON' });
+
+    const { res, body } = await setFlag(app, post.id, 'like', '{"liked": ');
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('INVALID_JSON');
+  });
+
+  it('校验失败不会改动原有状态', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '失败不改状态' });
+
+    await setFlag(app, post.id, 'like', { liked: true });
+    await setFlag(app, post.id, 'like', { liked: 'yes' });
+
+    const { body } = await requestJson(app, '/api/posts');
+    expect(body.posts[0].likeCount).toBe(1);
+    expect(body.posts[0].liked).toBe(true);
+  });
+});
+
+describe('PUT /api/posts/:id/favorite', () => {
+  it('收藏成功返回 200，favoriteCount 为 1 且 favorited 为 true', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '值得收藏' });
+
+    const { res, body } = await setFlag(app, post.id, 'favorite', { favorited: true });
+
+    expect(res.status).toBe(200);
+    expect(body.post).toEqual({ ...post, favoriteCount: 1, favorited: true });
+  });
+
+  it('重复收藏同一状态不会重复累加（幂等）', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '收藏两次' });
+
+    await setFlag(app, post.id, 'favorite', { favorited: true });
+    const again = await setFlag(app, post.id, 'favorite', { favorited: true });
+
+    expect(again.body.post.favoriteCount).toBe(1);
+  });
+
+  it('取消收藏后计数回到 0，重复取消不会变成负数', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '收藏再取消' });
+
+    await setFlag(app, post.id, 'favorite', { favorited: true });
+    const off = await setFlag(app, post.id, 'favorite', { favorited: false });
+    const again = await setFlag(app, post.id, 'favorite', { favorited: false });
+
+    expect(off.body.post.favoriteCount).toBe(0);
+    expect(off.body.post.favorited).toBe(false);
+    expect(again.body.post.favoriteCount).toBe(0);
+  });
+
+  it('收藏不存在的 id → 404 NOT_FOUND', async () => {
+    const { app } = setup();
+    const { res, body } = await setFlag(app, 'does-not-exist', 'favorite', { favorited: true });
+
+    expect(res.status).toBe(404);
+    expect(body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('favorited 非布尔值 → 400 INVALID_STATE', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '收藏类型校验' });
+
+    const { res, body } = await setFlag(app, post.id, 'favorite', { favorited: 'true' });
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('INVALID_STATE');
+    expect(body.error.message).toContain('favorited');
+  });
+});
+
+describe('点赞与收藏互不干扰', () => {
+  it('点赞不会改收藏计数，收藏也不会改点赞计数', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '两个开关' });
+
+    const liked = await setFlag(app, post.id, 'like', { liked: true });
+    expect(liked.body.post.favoriteCount).toBe(0);
+    expect(liked.body.post.favorited).toBe(false);
+
+    const faved = await setFlag(app, post.id, 'favorite', { favorited: true });
+    expect(faved.body.post.likeCount).toBe(1);
+    expect(faved.body.post.liked).toBe(true);
+    expect(faved.body.post.favoriteCount).toBe(1);
+    expect(faved.body.post.favorited).toBe(true);
+  });
+
+  it('删除动态后其点赞 / 收藏状态一并消失', async () => {
+    const { app } = setup();
+    const post = await createPost(app, { text: '删掉' });
+
+    await setFlag(app, post.id, 'like', { liked: true });
+    await setFlag(app, post.id, 'favorite', { favorited: true });
+    await requestJson(app, '/api/posts/' + post.id, { method: 'DELETE' });
+
+    const { body } = await requestJson(app, '/api/posts');
+    expect(body.posts).toEqual([]);
+  });
+});
+
 describe('未知 /api 路由', () => {
   it('GET /api/unknown → 404 NOT_FOUND', async () => {
     const { app } = setup();
@@ -279,7 +483,16 @@ describe('store 工厂', () => {
     const store = createStore({ now: () => 42, generateId: () => 'fixed-id' });
     const post = store.create({ text: '固定值', author: '我' });
 
-    expect(post).toEqual({ id: 'fixed-id', text: '固定值', author: '我', createdAt: 42 });
+    expect(post).toEqual({
+      id: 'fixed-id',
+      text: '固定值',
+      author: '我',
+      createdAt: 42,
+      likeCount: 0,
+      liked: false,
+      favoriteCount: 0,
+      favorited: false,
+    });
     expect(store.get('fixed-id')).toEqual(post);
     expect(store.list()).toHaveLength(1);
     expect(store.remove('fixed-id')).toBe(true);
