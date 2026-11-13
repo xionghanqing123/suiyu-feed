@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>碎语 · 随手记录</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%AC%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -22,7 +23,7 @@
     <section class="composer" aria-label="发布动态">
       <form id="composerForm" novalidate>
         <label class="sr-only" for="postText">动态内容</label>
-        <textarea id="postText" rows="3" maxlength="280" placeholder="此刻有什么想说的？"></textarea>
+        <textarea id="postText" rows="3" placeholder="此刻有什么想说的？"></textarea>
         <div class="composer-bar">
           <span id="charCounter" class="char-counter">0 / 280</span>
           <button type="submit" id="submitBtn" class="btn-primary" disabled>发布</button>
@@ -40,7 +41,7 @@
     </main>
 
     <footer class="app-footer">
-      所有数据仅保存在当前浏览器的 Local Storage 中
+      所有数据由本地后端服务存储
     </footer>
   </div>
 

@@ -1,0 +1,27 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [aria-hidden] [ref=e5]: 语
+      - generic [ref=e6]:
+        - heading "碎语" [level=1] [ref=e7]
+        - paragraph [ref=e8]: 记录此刻，随手发布
+    - generic [ref=e9]: 1 条动态
+  - region "发布动态" [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: 动态内容
+      - textbox "动态内容" [active] [ref=e13]:
+        - /placeholder: 此刻有什么想说的？
+      - generic [ref=e14]:
+        - generic [ref=e15]: 0 / 280
+        - button "发布" [disabled] [ref=e16]
+  - main [ref=e17]:
+    - list [ref=e23]:
+      - listitem [ref=e24]:
+        - generic [ref=e25]:
+          - generic [aria-hidden] [ref=e26]: 我
+          - generic [ref=e27]:
+            - generic [ref=e28]: 我
+            - generic "2026/11/13 15:43:13" [ref=e29]: 刚刚
+        - paragraph [ref=e30]: 第一条：用内置浏览器验收后端存储 🚀
+        - button "删除这条动态" [ref=e32] [cursor=pointer]: 删除
+  - contentinfo [ref=e22]: 所有数据由本地后端服务存储

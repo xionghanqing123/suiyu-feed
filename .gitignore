@@ -13,3 +13,6 @@ build/
 # 日志
 *.log
 npm-debug.log*
+
+# 浏览器验收产物
+.playwright-cli/

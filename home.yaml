@@ -1,0 +1,23 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [aria-hidden] [ref=e5]: 语
+      - generic [ref=e6]:
+        - heading "碎语" [level=1] [ref=e7]
+        - paragraph [ref=e8]: 记录此刻，随手发布
+    - generic [ref=e9]: 0 条动态
+  - region "发布动态" [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: 动态内容
+      - textbox "动态内容" [ref=e13]:
+        - /placeholder: 此刻有什么想说的？
+      - generic [ref=e14]:
+        - generic [ref=e15]: 0 / 280
+        - button "发布" [disabled] [ref=e16]
+  - main [ref=e17]:
+    - list
+    - generic [ref=e18]:
+      - generic [aria-hidden] [ref=e19]: ✦
+      - paragraph [ref=e20]: 还没有任何动态
+      - paragraph [ref=e21]: 在上方输入一段文字，点击「发布」开始记录。
+  - contentinfo [ref=e22]: 所有数据由本地后端服务存储
