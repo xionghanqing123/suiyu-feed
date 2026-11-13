@@ -12,7 +12,12 @@
   var feed = document.getElementById('feed');
   var feedWrap = feed.parentNode;
   var emptyState = document.getElementById('emptyState');
+  var emptyTitle = document.getElementById('emptyTitle');
+  var emptyDesc = document.getElementById('emptyDesc');
   var postCount = document.getElementById('postCount');
+  var filterAll = document.getElementById('filterAll');
+  var filterFavorites = document.getElementById('filterFavorites');
+  var favoriteBadge = document.getElementById('favoriteBadge');
 
   /* ---------------- 状态提示条（加载中 / 错误） ---------------- */
 
@@ -108,8 +113,16 @@
     });
   }
 
+  /** 计数类字段兜底：非法值一律当 0，且保证是非负整数 */
+  function toCount(value) {
+    var n = Number(value);
+    if (!isFinite(n) || n < 0) return 0;
+    return Math.floor(n);
+  }
+
   /**
-   * 统一整理服务端返回的字段，保证视图层拿到 id/author/text/createdAt 的稳定类型。
+   * 统一整理服务端返回的字段，保证视图层拿到 id/author/text/createdAt
+   * 以及点赞 / 收藏四个字段的稳定类型。
    */
   function normalizePost(raw) {
     if (!raw || typeof raw !== 'object') return null;
@@ -128,7 +141,11 @@
       id: raw.id === null || raw.id === undefined ? '' : String(raw.id),
       author: typeof raw.author === 'string' && raw.author ? raw.author : DEFAULT_AUTHOR,
       text: raw.text,
-      createdAt: createdAt
+      createdAt: createdAt,
+      likeCount: toCount(raw.likeCount),
+      liked: raw.liked === true,
+      favoriteCount: toCount(raw.favoriteCount),
+      favorited: raw.favorited === true
     };
   }
 
@@ -166,9 +183,71 @@
     return apiRequest('DELETE', API_POSTS + '/' + encodeURIComponent(id));
   }
 
+  /* ---------------- 点赞 / 收藏 ---------------- */
+
+  /** 用服务端返回的最新数据就地更新列表里的同一条动态（保持对象引用不变） */
+  function applyPost(updated) {
+    for (var i = 0; i < posts.length; i++) {
+      if (posts[i].id !== updated.id) continue;
+      posts[i].author = updated.author;
+      posts[i].text = updated.text;
+      posts[i].createdAt = updated.createdAt;
+      posts[i].likeCount = updated.likeCount;
+      posts[i].liked = updated.liked;
+      posts[i].favoriteCount = updated.favoriteCount;
+      posts[i].favorited = updated.favorited;
+      return;
+    }
+  }
+
+  /**
+   * 切换点赞 / 收藏：先乐观更新 UI，再用服务端返回的数据校正，失败则回滚。
+   * 请求里显式传目标布尔值（不是 toggle），接口幂等，重试不会重复累加。
+   */
+  function toggleFlag(post, kind) {
+    var isLike = kind === 'like';
+    var field = isLike ? 'liked' : 'favorited';
+    var countField = isLike ? 'likeCount' : 'favoriteCount';
+    var label = isLike ? '点赞' : '收藏';
+    var pendingKey = post.id + ':' + kind;
+
+    if (pendingActions[pendingKey]) return;
+
+    var target = post[field] !== true;
+    var previous = { active: post[field], count: post[countField] };
+
+    post[field] = target;
+    post[countField] = Math.max(0, post[countField] + (target ? 1 : -1));
+    pendingActions[pendingKey] = true;
+    render();
+
+    var payload = isLike ? { liked: target } : { favorited: target };
+    var path = API_POSTS + '/' + encodeURIComponent(post.id) + (isLike ? '/like' : '/favorite');
+
+    apiRequest('PUT', path, payload).then(function (data) {
+      var updated = normalizePost(data ? data.post : null);
+      if (!updated) throw new Error('服务端未返回更新后的动态内容。');
+      applyPost(updated);
+      delete pendingActions[pendingKey];
+      hideStatus();
+      render();
+    }, function (err) {
+      // 失败回滚到点击前的状态，避免脏 UI
+      post[field] = previous.active;
+      post[countField] = previous.count;
+      delete pendingActions[pendingKey];
+      render();
+      showError(label + '失败：' + err.message, false);
+    });
+  }
+
   var posts = [];
   var hasLoaded = false;
   var isSubmitting = false;
+  // 'all' 或 'favorites'：全量数据都在内存里，筛选纯前端完成
+  var currentFilter = 'all';
+  // 请求飞行中的点赞 / 收藏按钮，key 为 `id:kind`，防止连点导致计数错乱
+  var pendingActions = {};
 
   /**
    * 按 Unicode 码点计数，与后端 validate.js 的口径保持一致，
@@ -211,6 +290,43 @@
       ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
   }
 
+  /**
+   * 构造点赞 / 收藏按钮：图标随状态切换，aria-pressed 反映当前状态，
+   * 数量为 0 时也照常显示，避免布局跳动。
+   */
+  function buildFlagButton(post, kind) {
+    var isLike = kind === 'like';
+    var active = isLike ? post.liked === true : post.favorited === true;
+    var count = isLike ? post.likeCount : post.favoriteCount;
+    var label = isLike ? '点赞' : '收藏';
+    var icon = isLike ? (active ? '♥' : '♡') : (active ? '★' : '☆');
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-flag btn-' + kind + (active ? ' is-active' : '');
+    btn.dataset.kind = kind;
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.setAttribute('aria-label', label + '，当前 ' + count + ' 个');
+    btn.disabled = pendingActions[post.id + ':' + kind] === true;
+
+    var iconEl = document.createElement('span');
+    iconEl.className = 'flag-icon';
+    iconEl.setAttribute('aria-hidden', 'true');
+    iconEl.textContent = icon;
+
+    var countEl = document.createElement('span');
+    countEl.className = 'flag-count';
+    countEl.textContent = String(count);
+
+    btn.appendChild(iconEl);
+    btn.appendChild(countEl);
+    btn.addEventListener('click', function () {
+      toggleFlag(post, kind);
+    });
+
+    return btn;
+  }
+
   function buildPostItem(post) {
     var li = document.createElement('li');
     li.className = 'post';
@@ -248,6 +364,12 @@
     var actions = document.createElement('div');
     actions.className = 'post-actions';
 
+    // 左侧：点赞 / 收藏
+    var reactions = document.createElement('div');
+    reactions.className = 'post-reactions';
+    reactions.appendChild(buildFlagButton(post, 'like'));
+    reactions.appendChild(buildFlagButton(post, 'favorite'));
+
     var delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.className = 'btn-delete';
@@ -257,6 +379,7 @@
       removePost(post.id, delBtn);
     });
 
+    actions.appendChild(reactions);
     actions.appendChild(delBtn);
     li.appendChild(head);
     li.appendChild(body);
@@ -264,15 +387,54 @@
     return li;
   }
 
+  function visiblePosts() {
+    if (currentFilter !== 'favorites') return posts;
+    return posts.filter(function (post) {
+      return post.favorited === true;
+    });
+  }
+
   function render() {
     feed.textContent = '';
     // 顺序以服务端为准（最新在前），本地新建的动态插到队首，避免二次排序打乱同毫秒的先后
-    posts.forEach(function (post) {
+    var shown = visiblePosts();
+    shown.forEach(function (post) {
       feed.appendChild(buildPostItem(post));
     });
 
-    emptyState.hidden = !hasLoaded || posts.length > 0;
+    // 顶部的「N 条动态」始终是总数，不受筛选影响
     postCount.textContent = String(posts.length);
+
+    var favoriteTotal = 0;
+    posts.forEach(function (post) {
+      if (post.favorited === true) favoriteTotal += 1;
+    });
+    favoriteBadge.textContent = String(favoriteTotal);
+
+    var isEmpty = hasLoaded && shown.length === 0;
+    emptyState.hidden = !isEmpty;
+    if (isEmpty) {
+      if (currentFilter === 'favorites') {
+        emptyTitle.textContent = '还没有收藏任何动态';
+        emptyDesc.textContent = '点击动态下方的 ☆ 即可收藏，收藏后会出现在这里。';
+      } else {
+        emptyTitle.textContent = '还没有任何动态';
+        emptyDesc.textContent = '在上方输入一段文字，点击「发布」开始记录。';
+      }
+    }
+  }
+
+  /** 切换「全部 / 收藏」筛选，纯前端过滤，不额外请求接口 */
+  function setFilter(filter) {
+    currentFilter = filter === 'favorites' ? 'favorites' : 'all';
+
+    var isAll = currentFilter === 'all';
+    filterAll.classList.toggle('is-active', isAll);
+    filterFavorites.classList.toggle('is-active', !isAll);
+    filterAll.setAttribute('aria-pressed', isAll ? 'true' : 'false');
+    filterFavorites.setAttribute('aria-pressed', isAll ? 'false' : 'true');
+
+    render();
   }
 
   /* ---------------- 交互 ---------------- */
@@ -345,6 +507,14 @@
       event.preventDefault();
       if (!submitBtn.disabled) publish();
     }
+  });
+
+  filterAll.addEventListener('click', function () {
+    setFilter('all');
+  });
+
+  filterFavorites.addEventListener('click', function () {
+    setFilter('favorites');
   });
 
   updateCounter();

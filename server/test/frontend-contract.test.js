@@ -44,3 +44,37 @@ describe('前端长度口径与后端一致（Unicode 码点）', () => {
     expect(textarea[0]).not.toMatch(/maxlength/i);
   });
 });
+
+describe('点赞 / 收藏走服务端接口', () => {
+  it('app.js 调用了点赞与收藏接口', () => {
+    expect(appJs).toContain('/like');
+    expect(appJs).toContain('/favorite');
+  });
+
+  it('app.js 用 PUT 显式提交目标状态（幂等，不做 toggle 语义）', () => {
+    expect(appJs).toMatch(/'PUT'/);
+    expect(appJs).toContain('liked:');
+    expect(appJs).toContain('favorited:');
+  });
+
+  it('按钮用 aria-pressed 表达开关状态', () => {
+    expect(appJs).toContain('aria-pressed');
+  });
+
+  it('点赞 / 收藏状态依然不落地到浏览器本地存储', () => {
+    expect(appJs).not.toMatch(/localStorage/);
+    expect(appJs).not.toMatch(/sessionStorage/);
+  });
+});
+
+describe('收藏筛选在页面结构中可被定位', () => {
+  it('index.html 提供「收藏」筛选控件', () => {
+    expect(indexHtml).toContain('id="feedFilters"');
+    expect(indexHtml).toContain('data-filter="favorites"');
+  });
+
+  it('app.js 会绑定该筛选控件并做本地过滤', () => {
+    expect(appJs).toContain('filterFavorites');
+    expect(appJs).toContain("=== 'favorites'");
+  });
+});
