@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "碎语 Mini Feed：极简动态页 + Hono 内存后端",
+  "description": "碎语 Mini Feed：极简动态页（发布 / 点赞 / 收藏 / 收藏筛选）+ Hono 内存后端",
+  "keywords": [
+    "mini-feed",
+    "hono",
+    "vanilla-js",
+    "rest-api"
+  ],
   "scripts": {
     "start": "node server/src/index.js",
     "dev": "node --watch server/src/index.js",
