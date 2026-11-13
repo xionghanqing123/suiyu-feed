@@ -6,6 +6,8 @@
 
 - 发布动态：输入文字（上限 280 字，按 Unicode 码点计数，emoji 算 1 个字），实时字数统计，空内容不可发布
 - 查看动态：按时间倒序展示，相对时间显示（刚刚 / x 分钟前 / 昨天 ...）
+- 点赞 / 收藏：每条动态可点赞（♡ → ♥）与收藏（☆ → ★），带计数；乐观更新，请求失败自动回滚并提示
+- 收藏筛选：「全部 / 收藏」两个 tab，收藏 tab 显示收藏数量，可在本地只看已收藏的动态
 - 删除动态：单条动态可删除，带二次确认
 - 服务端存储：数据由后端内存保管，刷新页面不丢失
 - 快捷键：`Ctrl / Cmd + Enter` 快速发布
@@ -60,18 +62,27 @@ npm test         # 运行接口测试
 | GET | `/api/health` | 健康检查，返回 `{"status":"ok"}` |
 | GET | `/api/posts` | 动态列表，按 `createdAt` 倒序，返回 `{"posts":[...]}` |
 | POST | `/api/posts` | 发布动态，body `{"text":"...","author":"我"}`，成功 201 返回 `{"post":{...}}` |
+| PUT | `/api/posts/:id/like` | 设置点赞状态，body `{"liked":true\|false}`，成功 200 返回 `{"post":{...}}` |
+| PUT | `/api/posts/:id/favorite` | 设置收藏状态，body `{"favorited":true\|false}`，成功 200 返回 `{"post":{...}}` |
 | DELETE | `/api/posts/:id` | 删除动态，成功 200 返回 `{"deleted":true}`；不存在 404 |
 
-单条动态结构：
+单条动态结构（8 个字段）：
 
 ```json
 {
   "id": "0a1b2c3d-...",
   "author": "我",
   "text": "第一条动态",
-  "createdAt": 1763000000000
+  "createdAt": 1763000000000,
+  "likeCount": 0,
+  "liked": false,
+  "favoriteCount": 0,
+  "favorited": false
 }
 ```
+
+`liked` / `favorited` 表示「当前用户」是否已点赞 / 已收藏（无鉴权，单用户语义）。
+点赞与收藏接口传的是**目标状态**而不是「切换」语义，因此天然幂等：重复提交同一个值不会让计数重复累加，取消时计数也不会降为负数。
 
 ### 错误响应
 
@@ -83,6 +94,7 @@ npm test         # 运行接口测试
 | 400 | `TEXT_TOO_LONG` | 正文去空白后超过 280 字 |
 | 400 | `INVALID_AUTHOR` | 作者名非字符串或超过 32 字 |
 | 400 | `INVALID_JSON` | 请求体不是合法 JSON |
+| 400 | `INVALID_STATE` | 点赞 / 收藏的 `liked` / `favorited` 不是布尔值 |
 | 404 | `NOT_FOUND` | 动态不存在或接口不存在 |
 | 500 | `INTERNAL` | 未处理异常（不返回堆栈） |
 
@@ -90,15 +102,19 @@ npm test         # 运行接口测试
 
 ## 技术说明
 
-- 后端只暴露 2 个 REST 资源路径（`/api/posts`、`/api/posts/:id`），校验逻辑集中在 `validate.js`
+- 后端只围绕 `/api/posts` 这一个资源展开（列表 / 新建 / 删除，外加 `/like`、`/favorite` 两个状态子资源），校验逻辑集中在 `validate.js`
 - 静态资源采用**白名单**：仅对外提供 `index.html` 与 `assets/`，源码、`package.json`、`node_modules` 等一律 404
 - 删除接口幂等性语义为「删不到就 404」，前端删除失败时保留原条目，不会产生脏 UI
 - 所有用户输入通过 `textContent` 写入 DOM，避免 XSS 注入
 - 长度按 Unicode 码点计算：前端计数与后端校验口径一致，textarea 不再用 `maxlength` 做 UTF-16 码元截断
 - 前端顺序完全信任服务端（最新在前），本地新建动态插入队首，避免同毫秒创建时二次排序打乱先后
+- 点赞 / 收藏先做乐观更新，再用服务端返回的 post 校正；失败回滚本地状态并提示，不会留下脏 UI
+- 请求飞行期间按钮禁用，避免连点导致计数错乱
+- 收藏筛选纯前端完成（全量数据已在内存中），不额外增加接口；顶部「N 条动态」始终是总数
 - 接口测试覆盖：字段校验边界、倒序、默认作者、重复删除、未知路由、静态资源越权访问
-- 健壮性测试覆盖：store 返回副本隔离、同时间戳稳定排序、特殊 id 删除、500 不泄漏堆栈、`text/plain` 容错、响应字段白名单
-- 前端契约测试覆盖：无 Local Storage/Session Storage 依赖、调用 `/api/posts`、码点计数、无 `maxlength` 截断
+- 点赞收藏测试覆盖：初始零值、幂等累加、取消不为负、两开关互不影响、404、非布尔 400、非法 JSON、失败不改状态
+- 健壮性测试覆盖：store 返回副本隔离、同时间戳稳定排序、特殊 id 删除、500 不泄漏堆栈、`text/plain` 容错、响应字段白名单（8 字段）
+- 前端契约测试覆盖：无 Local Storage/Session Storage 依赖、调用 `/api/posts`、码点计数、无 `maxlength` 截断、点赞收藏走后端接口、`aria-pressed` 语义
 
 ## 许可
 
