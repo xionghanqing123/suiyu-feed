@@ -176,6 +176,59 @@ body {
   box-shadow: none;
 }
 
+/* ---------- 筛选 tabs ---------- */
+.feed-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.filter-tab:hover {
+  color: var(--accent);
+  border-color: #cfc9f7;
+}
+
+.filter-tab.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #7d6cf0, #9d6cf0 60%, #c96ce0);
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(124, 105, 240, .26);
+}
+
+.filter-tab.is-active:hover { color: #fff; }
+
+.filter-tab-badge {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: #f1f2f7;
+}
+
+.filter-tab.is-active .filter-tab-badge {
+  color: #fff;
+  background: rgba(255, 255, 255, .28);
+}
+
 /* ---------- Feed ---------- */
 .feed-wrap { position: relative; }
 
@@ -291,8 +344,74 @@ body {
 
 .post-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 10px;
+}
+
+.post-reactions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- 点赞 / 收藏 ---------- */
+.btn-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  color: #9aa0ad;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+  transition: color .15s ease, background .15s ease, transform .15s ease;
+}
+
+.flag-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.flag-count {
+  line-height: 1;
+}
+
+.btn-flag:hover:not(:disabled) {
+  background: #f4f4fa;
+  color: #6b7280;
+}
+
+.btn-flag:active:not(:disabled) { transform: scale(.96); }
+
+.btn-flag:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.btn-like.is-active {
+  color: var(--danger);
+  background: #fdeff0;
+}
+
+.btn-like.is-active:hover:not(:disabled) {
+  color: var(--danger);
+  background: #fbdfe2;
+}
+
+.btn-favorite.is-active {
+  color: #d9861f;
+  background: #fdf4e5;
+}
+
+.btn-favorite.is-active:hover:not(:disabled) {
+  color: #d9861f;
+  background: #fbeacf;
 }
 
 .btn-delete {
