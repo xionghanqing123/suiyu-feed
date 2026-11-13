@@ -24,6 +24,10 @@ describe('内存存储的数据隔离', () => {
       author: '我',
       text: '原始内容',
       createdAt: 1,
+      likeCount: 0,
+      liked: false,
+      favoriteCount: 0,
+      favorited: false,
     });
   });
 
@@ -124,13 +128,22 @@ describe('REST 接口的健壮性', () => {
     expect((await res.json()).post.text).toBe('纯文本头');
   });
 
-  it('GET /api/posts 返回的动态只包含四个公开字段', async () => {
+  it('GET /api/posts 返回的动态只包含八个公开字段', async () => {
     const app = createApp();
     await app.request('/api/posts', jsonBody('POST', { text: '字段检查' }));
 
     const res = await app.request('/api/posts');
     const { posts } = await res.json();
 
-    expect(Object.keys(posts[0]).sort()).toEqual(['author', 'createdAt', 'id', 'text']);
+    expect(Object.keys(posts[0]).sort()).toEqual([
+      'author',
+      'createdAt',
+      'favoriteCount',
+      'favorited',
+      'id',
+      'likeCount',
+      'liked',
+      'text',
+    ]);
   });
 });
