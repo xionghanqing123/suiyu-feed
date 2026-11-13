@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>碎语 · 随手记录</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">语</div>
+        <div>
+          <h1>碎语</h1>
+          <p class="brand-sub">记录此刻，随手发布</p>
+        </div>
+      </div>
+      <div class="count-pill"><span id="postCount">0</span> 条动态</div>
+    </header>
+
+    <section class="composer" aria-label="发布动态">
+      <form id="composerForm" novalidate>
+        <label class="sr-only" for="postText">动态内容</label>
+        <textarea id="postText" rows="3" maxlength="280" placeholder="此刻有什么想说的？"></textarea>
+        <div class="composer-bar">
+          <span id="charCounter" class="char-counter">0 / 280</span>
+          <button type="submit" id="submitBtn" class="btn-primary" disabled>发布</button>
+        </div>
+      </form>
+    </section>
+
+    <main class="feed-wrap">
+      <ul id="feed" class="feed"></ul>
+      <div id="emptyState" class="empty-state" hidden>
+        <div class="empty-icon" aria-hidden="true">✦</div>
+        <p class="empty-title">还没有任何动态</p>
+        <p class="empty-desc">在上方输入一段文字，点击「发布」开始记录。</p>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      所有数据仅保存在当前浏览器的 Local Storage 中
+    </footer>
+  </div>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
